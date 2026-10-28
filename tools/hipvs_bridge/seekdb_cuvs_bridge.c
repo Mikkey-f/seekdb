@@ -11,6 +11,26 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+/* CAGRA build configuration.
+ *
+ * The graph we need is exactly SEEKDB_CAGRA_GRAPH_DEGREE out-edges per node. The
+ * baseline built a 2x wider intermediate graph and pruned it, and ran 100
+ * NN-descent refinement passes. Measured on 250K x 128 and 250K x 256 (see the
+ * build-profiles report): keeping the intermediate degree equal to the final
+ * degree and converging NN-descent in SEEKDB_CAGRA_NITER passes produces a graph
+ * of equal or better quality (recall measured under a deliberately weakened
+ * search setting to expose graph quality) while cutting build time by ~4x.
+ * Override at compile time only when running the profiling sweep. */
+#ifndef SEEKDB_CAGRA_GRAPH_DEGREE
+#define SEEKDB_CAGRA_GRAPH_DEGREE 128
+#endif
+#ifndef SEEKDB_CAGRA_INTERMEDIATE_DEGREE
+#define SEEKDB_CAGRA_INTERMEDIATE_DEGREE 128
+#endif
+#ifndef SEEKDB_CAGRA_NITER
+#define SEEKDB_CAGRA_NITER 25
+#endif
+
 typedef struct {
   cuvsResources_t        res;
   cuvsCagraIndexParams_t ip;
@@ -33,9 +53,9 @@ void* seekdb_cuvs_build(const float* base, long n, long dim)
 
   if (cuvsCagraIndexParamsCreate(&h->ip) != CUVS_SUCCESS) goto fail_res;
   h->ip->build_algo = NN_DESCENT;
-  h->ip->graph_degree = 128;
-  h->ip->intermediate_graph_degree = 256;
-  h->ip->nn_descent_niter = 100;
+  h->ip->graph_degree = SEEKDB_CAGRA_GRAPH_DEGREE;
+  h->ip->intermediate_graph_degree = SEEKDB_CAGRA_INTERMEDIATE_DEGREE;
+  h->ip->nn_descent_niter = SEEKDB_CAGRA_NITER;
   if (cuvsCagraIndexCreate(&h->idx)      != CUVS_SUCCESS) goto fail_ip;
   if (cuvsCagraBuild(h->res, h->ip, &dset, h->idx) != CUVS_SUCCESS) goto fail_idx;
   h->n = n; h->dim = dim;
